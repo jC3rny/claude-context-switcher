@@ -1,0 +1,98 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  quality:
+    name: Code Quality
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Format check
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "Files not formatted:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+  release:
+    name: Release
+    runs-on: macos-latest
+    needs: quality
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build darwin/amd64
+        env:
+          GOOS: darwin
+          GOARCH: amd64
+        run: go build -ldflags="-s -w" -o cx-darwin-amd64 .
+
+      - name: Build darwin/arm64
+        env:
+          GOOS: darwin
+          GOARCH: arm64
+        run: go build -ldflags="-s -w" -o cx-darwin-arm64 .
+
+      - name: Generate checksums
+        run: shasum -a 256 cx-darwin-* > checksums.txt
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          prev_tag=$(git tag --sort=-v:refname | sed -n '2p')
+          if [ -n "$prev_tag" ]; then
+            echo "changes<<EOF" >> "$GITHUB_OUTPUT"
+            git log --pretty=format:"- %s" "$prev_tag"..HEAD >> "$GITHUB_OUTPUT"
+            echo "" >> "$GITHUB_OUTPUT"
+            echo "EOF" >> "$GITHUB_OUTPUT"
+          else
+            echo "changes=Initial release" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: false
+          body: |
+            ## Changes
+
+            ${{ steps.changelog.outputs.changes }}
+
+            ## Install
+
+            ```sh
+            # Apple Silicon (M1/M2/M3/M4)
+            curl -L -o cx https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/cx-darwin-arm64
+            chmod +x cx && mv cx /usr/local/bin/
+
+            # Intel Mac
+            curl -L -o cx https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/cx-darwin-amd64
+            chmod +x cx && mv cx /usr/local/bin/
+            ```
+          files: |
+            cx-darwin-amd64
+            cx-darwin-arm64
+            checksums.txt
