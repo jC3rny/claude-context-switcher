@@ -6,7 +6,7 @@ A Go CLI tool (`cx`) that manages multiple Claude Code OAuth tokens in macOS Key
 
 ## Architecture
 
-- Single-file Go application (`main.go`), no external dependencies
+- Single-file Go application (`cmd/cx/main.go`), no external dependencies
 - Uses macOS `security` CLI to interact with Keychain
 - Keychain entries follow the pattern `Claude Code-credentials (<context-name>)`
 - Active context tracked in `~/.claude/.active-context`
@@ -60,7 +60,7 @@ A Go CLI tool (`cx`) that manages multiple Claude Code OAuth tokens in macOS Key
 
 ## Testing changes
 
-After modifying `main.go`, verify:
+After modifying `cmd/cx/main.go`, verify:
 
 ```sh
 make

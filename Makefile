@@ -27,7 +27,7 @@ lint: fmt vet staticcheck gosec
 
 build:
 	@echo "==> build"
-	go build -o $(BINARY) .
+	go build -o $(BINARY) ./cmd/cx
 
 clean:
 	rm -f $(BINARY) $(BINARY)-darwin-*

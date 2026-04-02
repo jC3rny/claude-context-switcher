@@ -16,7 +16,7 @@ Claude Code stores a single OAuth token in macOS Keychain under `Claude Code-cre
 ## Install
 
 ```sh
-go install github.com/jC3rny/claude-context-switcher@latest
+go install github.com/jC3rny/claude-context-switcher/cmd/cx@latest
 ```
 
 Or build from source:
