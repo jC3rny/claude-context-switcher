@@ -31,11 +31,16 @@ mv cx /usr/local/bin/
 ## Development
 
 ```sh
-make lint       # run gofmt + go vet + staticcheck + gosec
+make lint       # golangci-lint (govet, staticcheck, gosec, gofmt)
+make shellcheck # shellcheck on bash completion
+make vulncheck  # govulncheck for known vulnerabilities
+make test       # unit tests
 make build      # build cx binary
 make clean      # remove binaries
-make            # lint + build
+make            # all of the above
 ```
+
+Prerequisites: `brew install golangci-lint shellcheck` and `go install golang.org/x/vuln/cmd/govulncheck@latest`
 
 ## Usage
 
@@ -88,21 +93,27 @@ Claude Code-credentials (work)       <- saved by cx
 ### Shell completions
 
 ```sh
-# Bash
-cx completion bash > /usr/local/etc/bash_completion.d/cx
+# Bash - add to ~/.bashrc
+eval "$(cx completion bash)"
+# or: cx completion bash > /usr/local/etc/bash_completion.d/cx
 
-# Zsh (add ~/.zfunc to fpath in .zshrc first)
-cx completion zsh > ~/.zfunc/_cx
+# Zsh - add to ~/.zshrc
+eval "$(cx completion zsh)"
+# or: cx completion zsh > ~/.zfunc/_cx  (add ~/.zfunc to fpath first)
 
 # Fish
 cx completion fish > ~/.config/fish/completions/cx.fish
 ```
 
+Completions support commands, flags, context names, and shell names for the `completion` subcommand.
+
 ## Security
 
 - Tokens are stored in macOS Keychain (encrypted), never in plain text files
 - Context names are validated: alphanumeric, hyphens, dots, underscores only
-- Security scanned with [gosec](https://github.com/securego/gosec) in CI
+- Linted with [golangci-lint](https://golangci-lint.run/) (govet, staticcheck, gosec, gofmt)
+- Vulnerability scanning with [govulncheck](https://pkg.go.dev/golang.org/x/vuln/cmd/govulncheck)
+- Shell completions checked with [shellcheck](https://www.shellcheck.net/)
 - `cx use` passes the token via `ANTHROPIC_AUTH_TOKEN` env var (same mechanism Claude Code uses internally)
 
 ## Requirements

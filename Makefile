@@ -3,29 +3,28 @@ GOOS    := darwin
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 LDFLAGS := -ldflags="-s -w -X main.version=$(VERSION)"
 
-.PHONY: all fmt vet staticcheck gosec lint build clean
+.PHONY: all lint shellcheck vulncheck test build clean
 
-all: lint build
+all: lint shellcheck vulncheck test build
 
-fmt:
-	@echo "==> gofmt"
-	@test -z "$$(gofmt -l .)" || (gofmt -l . && exit 1)
+lint:
+	@echo "==> golangci-lint"
+	@which golangci-lint >/dev/null 2>&1 || { echo "Install: brew install golangci-lint"; exit 1; }
+	golangci-lint run ./...
 
-vet:
-	@echo "==> go vet"
-	go vet ./...
+shellcheck:
+	@echo "==> shellcheck"
+	@which shellcheck >/dev/null 2>&1 || { echo "Install: brew install shellcheck"; exit 1; }
+	shellcheck cmd/cx/completions/cx.bash
 
-staticcheck:
-	@echo "==> staticcheck"
-	@which staticcheck >/dev/null 2>&1 || go install honnef.co/go/tools/cmd/staticcheck@latest
-	$$(go env GOPATH)/bin/staticcheck ./...
+vulncheck:
+	@echo "==> govulncheck"
+	@which govulncheck >/dev/null 2>&1 || go install golang.org/x/vuln/cmd/govulncheck@latest
+	$$(go env GOPATH)/bin/govulncheck ./...
 
-gosec:
-	@echo "==> gosec"
-	@which gosec >/dev/null 2>&1 || go install github.com/securego/gosec/v2/cmd/gosec@latest
-	$$(go env GOPATH)/bin/gosec ./...
-
-lint: fmt vet staticcheck gosec
+test:
+	@echo "==> test"
+	go test -v -count=1 ./...
 
 build:
 	@echo "==> build"

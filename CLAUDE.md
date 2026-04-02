@@ -29,7 +29,7 @@ A Go CLI tool (`cx`) that manages multiple Claude Code OAuth tokens in macOS Key
 - `delete` - removes named keychain entry
 - `show` - displays token preview (first/last 6 chars + length)
 - `current` - reads `~/.claude/.active-context`
-- `completion` - prints embedded shell completion scripts (bash, zsh, fish)
+- `completion` - prints embedded shell completion scripts (bash, zsh, fish); supports `eval` and fpath install
 - `version` - prints build version (injected via ldflags)
 
 ## Flags
@@ -50,23 +50,27 @@ A Go CLI tool (`cx`) that manages multiple Claude Code OAuth tokens in macOS Key
 
 ## Security
 
-- gosec scans run in CI and locally via `make gosec`
+- golangci-lint runs gosec, govet, staticcheck, and gofmt in a single pass
 - `#nosec` annotations are used for intentional patterns (exec.Command with hardcoded binary, syscall.Exec with LookPath result, fixed file paths)
 - All errors must be handled — unhandled errors will fail gosec
+- govulncheck scans for known vulnerabilities in dependencies
 
 ## CI/CD
 
-- `.github/workflows/ci.yml` - runs on push/PR to main: go vet, staticcheck, gofmt, gosec, build (amd64 + arm64)
-- `.github/workflows/release.yml` - runs on `v*` tags: quality checks, builds stripped binaries, generates checksums and changelog, creates GitHub Release
+- `.github/workflows/ci.yml` - runs on push/PR to main: golangci-lint, shellcheck, govulncheck, unit tests, build (amd64 + arm64)
+- `.github/workflows/release.yml` - runs on `v*` tags: same quality checks, builds stripped binaries, generates checksums and changelog, creates GitHub Release
 - Build targets: `darwin/amd64` and `darwin/arm64` only
 - Release binaries use `-ldflags="-s -w"` for size reduction
 
 ## Makefile targets
 
-- `make lint` - run gofmt + go vet + staticcheck + gosec
+- `make lint` - golangci-lint (govet, staticcheck, gosec, gofmt)
+- `make shellcheck` - shellcheck on bash completion script
+- `make vulncheck` - govulncheck for known vulnerabilities
+- `make test` - unit tests (`go test`)
 - `make build` - build cx binary
 - `make clean` - remove binaries
-- `make` - lint + build (default)
+- `make` - all of the above (default)
 
 ## Testing changes
 
@@ -79,4 +83,13 @@ make
 
 Do not run `cx save` or `cx delete` with real context names during testing. Use a disposable name like `test-tmp` and clean up after.
 
-**Always run `make` after finishing any code changes.** This runs the full code quality and security scan pipeline (gofmt, go vet, staticcheck, gosec) followed by a build. Do not consider development done until `make` passes cleanly.
+## Definition of done
+
+When you believe development is complete, do NOT commit or tell the user you're done. Instead, ask the user to confirm you should run the finish procedure. The finish procedure is:
+
+1. **Code quality and security scans** — run `make` (golangci-lint, shellcheck, govulncheck, unit tests, build)
+2. **Functional tests** — run `./cx list && ./cx current && ./cx version` and test any changed/new commands
+3. **Documentation** — update README.md and CLAUDE.md to reflect all changes
+4. **Re-run checks** — run `make` again after any doc or code touch-ups
+
+Only after all steps pass cleanly, report the results and ask the user if they want to commit.
