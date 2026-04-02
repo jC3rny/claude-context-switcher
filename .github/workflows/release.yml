@@ -48,13 +48,13 @@ jobs:
         env:
           GOOS: darwin
           GOARCH: amd64
-        run: go build -ldflags="-s -w" -o cx-darwin-amd64 ./cmd/cx
+        run: go build -ldflags="-s -w -X main.version=${{ github.ref_name }}" -o cx-darwin-amd64 ./cmd/cx
 
       - name: Build darwin/arm64
         env:
           GOOS: darwin
           GOARCH: arm64
-        run: go build -ldflags="-s -w" -o cx-darwin-arm64 ./cmd/cx
+        run: go build -ldflags="-s -w -X main.version=${{ github.ref_name }}" -o cx-darwin-arm64 ./cmd/cx
 
       - name: Generate checksums
         run: shasum -a 256 cx-darwin-* > checksums.txt

@@ -54,6 +54,8 @@ cx <command> [args]
 | `cx delete <name>` | Delete a saved context |
 | `cx show <name>` | Show token preview (first/last 6 chars) |
 | `cx current` | Show the currently active context |
+| `cx completion <shell>` | Print shell completions (bash, zsh, fish) |
+| `cx version` | Print version |
 
 ### Workflow
 
@@ -81,6 +83,19 @@ After saving contexts, your Keychain will contain:
 Claude Code-credentials              <- original (managed by Claude Code)
 Claude Code-credentials (personal)   <- saved by cx
 Claude Code-credentials (work)       <- saved by cx
+```
+
+### Shell completions
+
+```sh
+# Bash
+cx completion bash > /usr/local/etc/bash_completion.d/cx
+
+# Zsh (add ~/.zfunc to fpath in .zshrc first)
+cx completion zsh > ~/.zfunc/_cx
+
+# Fish
+cx completion fish > ~/.config/fish/completions/cx.fish
 ```
 
 ## Security

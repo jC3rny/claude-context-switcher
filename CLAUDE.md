@@ -7,6 +7,7 @@ A Go CLI tool (`cx`) that manages multiple Claude Code OAuth tokens in macOS Key
 ## Architecture
 
 - Single-file Go application (`cmd/cx/main.go`), no external dependencies
+- Shell completions embedded via `//go:embed` from `cmd/cx/completions/`
 - Uses macOS `security` CLI to interact with Keychain
 - Keychain entries follow the pattern `Claude Code-credentials (<context-name>)`
 - Active context tracked in `~/.claude/.active-context`
@@ -28,6 +29,14 @@ A Go CLI tool (`cx`) that manages multiple Claude Code OAuth tokens in macOS Key
 - `delete` - removes named keychain entry
 - `show` - displays token preview (first/last 6 chars + length)
 - `current` - reads `~/.claude/.active-context`
+- `completion` - prints embedded shell completion scripts (bash, zsh, fish)
+- `version` - prints build version (injected via ldflags)
+
+## Flags
+
+- `-v`, `--verbose` - verbose output to stderr (`[verbose]` prefix)
+- `--debug` - debug output to stderr (`[debug]` prefix, includes verbose)
+- Flags must appear before the command: `cx -v list`
 
 ## Conventions
 
@@ -37,6 +46,7 @@ A Go CLI tool (`cx`) that manages multiple Claude Code OAuth tokens in macOS Key
 - Error messages go to stderr, output to stdout
 - Binary name: `cx`
 - Context names validated against `^[a-zA-Z0-9][a-zA-Z0-9._-]*$`
+- Version injected at build time via `-ldflags -X main.version=`
 
 ## Security
 
@@ -68,3 +78,5 @@ make
 ```
 
 Do not run `cx save` or `cx delete` with real context names during testing. Use a disposable name like `test-tmp` and clean up after.
+
+**Always run `make` after finishing any code changes.** This runs the full code quality and security scan pipeline (gofmt, go vet, staticcheck, gosec) followed by a build. Do not consider development done until `make` passes cleanly.
