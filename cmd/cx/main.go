@@ -380,7 +380,15 @@ func cmdCurrent() int {
 	if active == "" {
 		fmt.Println("default (keychain)")
 	} else {
-		fmt.Println(active)
+		fmt.Printf("[%s]\n", active)
+	}
+
+	cmd := exec.Command("claude", "auth", "status") // #nosec G204 -- hardcoded binary and args
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: claude auth status: %v\n", err)
 	}
 	return 0
 }
