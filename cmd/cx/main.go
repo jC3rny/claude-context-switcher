@@ -2,6 +2,7 @@ package main
 
 import (
 	"embed"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -11,7 +12,6 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-	"syscall"
 )
 
 //go:embed completions/*
@@ -28,6 +28,7 @@ const (
 
 var (
 	account    string
+	activeDir  string
 	activeFile string
 	verbose    bool
 	debug      bool
@@ -52,7 +53,64 @@ func init() {
 		os.Exit(1)
 	}
 	account = u.Username
-	activeFile = filepath.Join(u.HomeDir, ".claude", ".active-context")
+	activeDir = filepath.Join(u.HomeDir, ".claude")
+	activeFile = filepath.Join(activeDir, ".active-context")
+}
+
+// claudeConfigFile returns the path to ~/.claude.json.
+func claudeConfigFile() string {
+	return filepath.Join(filepath.Dir(activeDir), ".claude.json")
+}
+
+// contextMetaFile returns the path where per-context oauthAccount data is stored.
+func contextMetaFile(name string) string {
+	return filepath.Join(activeDir, ".cx-contexts", name+".json")
+}
+
+// saveContextMeta snapshots the current oauthAccount from ~/.claude.json for the named context.
+func saveContextMeta(name string) error {
+	data, err := os.ReadFile(claudeConfigFile())
+	if err != nil {
+		return err
+	}
+	var config map[string]json.RawMessage
+	if err := json.Unmarshal(data, &config); err != nil {
+		return err
+	}
+	oauthAccount, ok := config["oauthAccount"]
+	if !ok {
+		return nil
+	}
+	dir := filepath.Join(activeDir, ".cx-contexts")
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return err
+	}
+	return os.WriteFile(contextMetaFile(name), oauthAccount, 0600)
+}
+
+// applyContextMeta restores a context's oauthAccount into ~/.claude.json.
+func applyContextMeta(name string) error {
+	oauthAccount, err := os.ReadFile(contextMetaFile(name))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	data, err := os.ReadFile(claudeConfigFile())
+	if err != nil {
+		return err
+	}
+	var config map[string]json.RawMessage
+	if err := json.Unmarshal(data, &config); err != nil {
+		return err
+	}
+	config["oauthAccount"] = oauthAccount
+	updated, err := json.Marshal(config)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(claudeConfigFile(), updated, 0600)
 }
 
 func svcName(name string) string {
@@ -153,7 +211,7 @@ func setActiveContext(name string) error {
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return err
 	}
-	return os.WriteFile(activeFile, []byte(name+"\n"), 0600)
+	return os.WriteFile(activeFile, []byte(name+"\n"), 0600) // #nosec G703 -- activeFile is fixed at init from HomeDir, not user-controlled
 }
 
 func cmdList() int {
@@ -193,21 +251,24 @@ func cmdSave(name string) int {
 		return 1
 	}
 
+	if err := saveContextMeta(name); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to save account metadata: %v\n", err)
+	}
+
 	fmt.Printf("Saved current token as '%s'\n", name)
 	return 0
 }
 
 func cmdLogin(name string) int {
 	fmt.Printf("Logging in for context '%s'...\n", name)
-	fmt.Println("Run /login in Claude, then exit.")
-	fmt.Println()
 
-	cmd := exec.Command("claude")
+	cmd := exec.Command("claude", "auth", "login") // #nosec G204 -- hardcoded binary and args
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: claude exited with error: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error: login failed: %v\n", err)
+		return 1
 	}
 
 	token, err := keychainGet(keychainSvc)
@@ -221,6 +282,10 @@ func cmdLogin(name string) int {
 		return 1
 	}
 
+	if err := saveContextMeta(name); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to save account metadata: %v\n", err)
+	}
+
 	if err := setActiveContext(name); err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: failed to set active context: %v\n", err)
 	}
@@ -228,7 +293,7 @@ func cmdLogin(name string) int {
 	return 0
 }
 
-func cmdUse(name string, extra []string) int {
+func cmdUse(name string) int {
 	logVerbose("switching to context %q", name)
 	token, err := keychainGet(svcName(name))
 	if err != nil || token == "" {
@@ -237,33 +302,30 @@ func cmdUse(name string, extra []string) int {
 		return 1
 	}
 
+	if err := keychainSet(keychainSvc, token); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to activate context '%s': %v\n", name, err)
+		return 1
+	}
+
+	if err := applyContextMeta(name); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to restore account metadata: %v\n", err)
+	}
+
 	if err := setActiveContext(name); err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: failed to set active context: %v\n", err)
 	}
 	fmt.Printf("[%s]\n", name)
 
-	claudePath, err := exec.LookPath("claude")
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "Error: claude not found in PATH")
-		return 1
+	cmd := exec.Command("claude", "auth", "status") // #nosec G204 -- hardcoded binary and args
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	logDebug("running: claude auth status")
+
+	if err := cmd.Run(); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: claude auth status: %v\n", err)
 	}
-	logDebug("claude path: %s", claudePath)
-
-	env := os.Environ()
-	env = append(env, "ANTHROPIC_AUTH_TOKEN="+token)
-	args := append([]string{"claude"}, extra...)
-	logDebug("exec args: %v", args)
-
-	return handleExec(claudePath, args, env)
-}
-
-func handleExec(path string, args, env []string) int {
-	err := syscall.Exec(path, args, env) // #nosec G204 -- path is from exec.LookPath("claude")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		return 1
-	}
-	return 0 // unreachable: syscall.Exec replaces the process on success
+	return 0
 }
 
 func cmdDelete(name string) int {
@@ -275,6 +337,8 @@ func cmdDelete(name string) int {
 	}
 
 	fmt.Printf("Deleted '%s'\n", name)
+
+	_ = os.Remove(contextMetaFile(name))
 
 	if getActiveContext() == name {
 		_ = os.Remove(activeFile)
@@ -340,8 +404,8 @@ Usage: cx [-v|--debug] <command> [args]
 Commands:
   list                List all saved contexts
   save <name>         Save current keychain token as a named context
-  login <name>        Login with a new account and save as context
-  use <name>          Launch Claude Code with a saved context
+  login <name>        Run 'claude auth login', then save the token as context
+  use <name>          Switch to a saved context and show auth status
   delete <name>       Delete a saved context
   show <name>         Show token preview (first/last chars)
   current             Show the currently active context
@@ -422,7 +486,7 @@ flagLoop:
 		}
 	case "use":
 		if name, ok := requireName(rest, cmd); ok {
-			code = cmdUse(name, rest[1:])
+			code = cmdUse(name)
 		} else {
 			code = 1
 		}

@@ -9,7 +9,7 @@ Claude Code stores a single OAuth token in macOS Keychain under `Claude Code-cre
 ## How it works
 
 - Tokens are stored in macOS Keychain as `Claude Code-credentials (<name>)`
-- `cx use <name>` launches `claude` with `ANTHROPIC_AUTH_TOKEN` set, bypassing the default keychain lookup
+- `cx use <name>` switches to the named context and runs `claude auth status` to confirm the active account
 - Active context is tracked in `~/.claude/.active-context`
 - No tokens are stored in plain text files
 
@@ -54,8 +54,8 @@ cx <command> [args]
 |---|---|
 | `cx list` | List all saved contexts |
 | `cx save <name>` | Save current keychain token as a named context |
-| `cx login <name>` | Open Claude for login, then save token as context |
-| `cx use <name>` | Launch Claude Code with a saved context |
+| `cx login <name>` | Run `claude auth login`, then save token as context |
+| `cx use <name>` | Switch to a saved context and show auth status |
 | `cx delete <name>` | Delete a saved context |
 | `cx show <name>` | Show token preview (first/last 6 chars) |
 | `cx current` | Show the currently active context |
@@ -80,7 +80,7 @@ cx save personal
 
 # Login with another account and save it
 cx login work
-# -> opens Claude, run /login, then exit
+# -> opens browser for claude.ai login, then saves the token
 
 # Switch between accounts
 cx use personal
@@ -124,7 +124,7 @@ Completions support commands, flags, context names, and shell names for the `com
 - Linted with [golangci-lint](https://golangci-lint.run/) (govet, staticcheck, gosec, gofmt)
 - Vulnerability scanning with [govulncheck](https://pkg.go.dev/golang.org/x/vuln/cmd/govulncheck)
 - Shell completions checked with [shellcheck](https://www.shellcheck.net/)
-- `cx use` passes the token via `ANTHROPIC_AUTH_TOKEN` env var (same mechanism Claude Code uses internally)
+- `cx use` sets `ANTHROPIC_AUTH_TOKEN` when running `claude auth status` (same mechanism Claude Code uses internally)
 
 ## Requirements
 

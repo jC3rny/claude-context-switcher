@@ -2,7 +2,7 @@
 
 ## Project overview
 
-A Go CLI tool (`cx`) that manages multiple Claude Code OAuth tokens in macOS Keychain. It allows switching between different Claude accounts without repeated /login cycles.
+A Go CLI tool (`cx`) that manages multiple Claude Code OAuth tokens in macOS Keychain. It allows switching between different Claude accounts without repeated `claude auth login` cycles.
 
 ## Architecture
 
@@ -11,7 +11,7 @@ A Go CLI tool (`cx`) that manages multiple Claude Code OAuth tokens in macOS Key
 - Uses macOS `security` CLI to interact with Keychain
 - Keychain entries follow the pattern `Claude Code-credentials (<context-name>)`
 - Active context tracked in `~/.claude/.active-context`
-- `cx use` replaces the process via `syscall.Exec` (no wrapper overhead)
+- `cx use` sets `ANTHROPIC_AUTH_TOKEN` and runs `claude auth status` to confirm the active account
 
 ## Key constants
 
@@ -24,8 +24,8 @@ A Go CLI tool (`cx`) that manages multiple Claude Code OAuth tokens in macOS Key
 
 - `list` - parses `security dump-keychain` output to find all cx entries
 - `save` - copies token from `Claude Code-credentials` to a named entry (does NOT update the active context)
-- `login` - launches `claude` interactively, saves the resulting token, and sets it as the active context
-- `use` - reads named token, sets `ANTHROPIC_AUTH_TOKEN`, execs `claude`
+- `login` - runs `claude auth login`, saves the resulting token, and sets it as the active context
+- `use` - reads named token, sets active context, runs `claude auth status` with `ANTHROPIC_AUTH_TOKEN`
 - `delete` - removes named keychain entry
 - `show` - displays token preview (first/last 6 chars + length)
 - `current` - reads `~/.claude/.active-context`
