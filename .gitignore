@@ -1,1 +1,18 @@
+# ignore IDE workspace settings
+.vscode
+
+# ignore positional files
+**/.empty
+**/.keep
+
+# ignore TMP folder
+**/tmp/**
+
+# ignore backup files
+**/*.bak*
+
+# ignore logs
+**/*.log
+
+# custom
 /cx
