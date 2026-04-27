@@ -10,6 +10,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"regexp"
+	runtimedebug "runtime/debug"
 	"sort"
 	"strings"
 )
@@ -21,6 +22,16 @@ var (
 	version   = "dev"
 	validName = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
 )
+
+func getVersion() string {
+	if version != "dev" {
+		return version
+	}
+	if info, ok := runtimedebug.ReadBuildInfo(); ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
+		return info.Main.Version
+	}
+	return version
+}
 
 const (
 	keychainSvc = "Claude Code-credentials"
@@ -505,7 +516,7 @@ flagLoop:
 	case "current":
 		code = cmdCurrent()
 	case "version", "--version":
-		fmt.Printf("cx %s\n", version)
+		fmt.Printf("cx %s\n", getVersion())
 	case "completion":
 		if len(rest) == 0 {
 			fmt.Fprintln(os.Stderr, "Usage: cx completion <bash|zsh|fish>")
