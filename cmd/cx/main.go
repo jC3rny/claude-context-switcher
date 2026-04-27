@@ -2,6 +2,7 @@ package main
 
 import (
 	"embed"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -75,18 +76,21 @@ func keychainGet(service string) (string, error) {
 
 func keychainSet(service, password string) error {
 	logDebug("keychain set: service=%q account=%q token=%d chars", service, account, len(password))
-	// Try update first
 	err := exec.Command("security", "add-generic-password", // #nosec G204 -- args are validated or constant
 		"-s", service,
 		"-a", account,
 		"-w", password,
 		"-U").Run()
 	if err != nil {
-		// Fallback to add
-		return exec.Command("security", "add-generic-password", // #nosec G204 -- args are validated or constant
-			"-s", service,
-			"-a", account,
-			"-w", password).Run()
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) && exitErr.ExitCode() == 45 {
+			// Item does not exist yet; add without -U
+			return exec.Command("security", "add-generic-password", // #nosec G204 -- args are validated or constant
+				"-s", service,
+				"-a", account,
+				"-w", password).Run()
+		}
+		return err
 	}
 	return nil
 }
@@ -149,7 +153,7 @@ func setActiveContext(name string) error {
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return err
 	}
-	return os.WriteFile(activeFile, []byte(name+"\n"), 0600) // #nosec G703 -- name is validated by caller, path is fixed
+	return os.WriteFile(activeFile, []byte(name+"\n"), 0600)
 }
 
 func cmdList() int {
@@ -254,19 +258,19 @@ func cmdUse(name string, extra []string) int {
 }
 
 func handleExec(path string, args, env []string) int {
-	err := syscall.Exec(path, args, env) // #nosec G204 G702 -- path is from exec.LookPath("claude")
+	err := syscall.Exec(path, args, env) // #nosec G204 -- path is from exec.LookPath("claude")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		return 1
 	}
-	return 0
+	return 0 // unreachable: syscall.Exec replaces the process on success
 }
 
 func cmdDelete(name string) int {
 	logVerbose("deleting context %q", name)
 	err := keychainDelete(svcName(name))
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: context '%s' not found\n", name)
+		fmt.Fprintf(os.Stderr, "Error: failed to delete context '%s': %v\n", name, err)
 		return 1
 	}
 
@@ -286,6 +290,10 @@ func cmdShow(name string) int {
 	}
 
 	l := len(token)
+	if l < 12 {
+		fmt.Printf("%s: <token too short to preview> (%d chars)\n", name, l)
+		return 0
+	}
 	prefix := token[:6]
 	suffix := token[l-6:]
 	fmt.Printf("%s: %s...%s (%d chars)\n", name, prefix, suffix, l)
@@ -370,6 +378,7 @@ func main() {
 	args := os.Args[1:]
 
 	// Parse flags
+flagLoop:
 	for len(args) > 0 {
 		switch args[0] {
 		case "-v", "--verbose":
@@ -379,10 +388,9 @@ func main() {
 			debug = true
 			args = args[1:]
 		default:
-			goto done
+			break flagLoop
 		}
 	}
-done:
 
 	if debug {
 		logDebug("account=%q activeFile=%q", account, activeFile)
@@ -435,11 +443,11 @@ done:
 	case "version", "--version":
 		fmt.Printf("cx %s\n", version)
 	case "completion":
-		if name, ok := requireName(rest, cmd); ok {
-			code = cmdCompletion(name)
-		} else {
+		if len(rest) == 0 {
 			fmt.Fprintln(os.Stderr, "Usage: cx completion <bash|zsh|fish>")
 			code = 1
+		} else {
+			code = cmdCompletion(rest[0])
 		}
 	case "help", "--help", "-h":
 		usage()

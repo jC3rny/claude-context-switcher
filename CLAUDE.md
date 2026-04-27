@@ -23,14 +23,14 @@ A Go CLI tool (`cx`) that manages multiple Claude Code OAuth tokens in macOS Key
 ## Commands
 
 - `list` - parses `security dump-keychain` output to find all cx entries
-- `save` - copies token from `Claude Code-credentials` to a named entry
-- `login` - launches `claude` interactively, then saves the resulting token
+- `save` - copies token from `Claude Code-credentials` to a named entry (does NOT update the active context)
+- `login` - launches `claude` interactively, saves the resulting token, and sets it as the active context
 - `use` - reads named token, sets `ANTHROPIC_AUTH_TOKEN`, execs `claude`
 - `delete` - removes named keychain entry
 - `show` - displays token preview (first/last 6 chars + length)
 - `current` - reads `~/.claude/.active-context`
-- `completion` - prints embedded shell completion scripts (bash, zsh, fish); supports `eval` and fpath install
-- `version` - prints build version (injected via ldflags)
+- `completion` - prints embedded shell completion script to stdout; pipe or redirect as needed (e.g. `eval "$(cx completion zsh)"`)
+- `version`, `--version` - prints build version (injected via ldflags)
 
 ## Flags
 
@@ -51,7 +51,7 @@ A Go CLI tool (`cx`) that manages multiple Claude Code OAuth tokens in macOS Key
 ## Security
 
 - golangci-lint runs gosec, govet, staticcheck, and gofmt in a single pass
-- `#nosec` annotations are used for intentional patterns (exec.Command with hardcoded binary, syscall.Exec with LookPath result, fixed file paths)
+- `#nosec G204` annotations are used for intentional `exec.Command` patterns where args are validated or constant
 - All errors must be handled — unhandled errors will fail gosec
 - govulncheck scans for known vulnerabilities in dependencies
 

@@ -6,41 +6,18 @@ on:
       - "v*"
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   quality:
-    name: Code Quality
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v7
-        with:
-          version: latest
-
-      - name: shellcheck
-        run: |
-          brew install shellcheck
-          shellcheck cmd/cx/completions/cx.bash
-
-      - name: govulncheck
-        run: |
-          go install golang.org/x/vuln/cmd/govulncheck@latest
-          govulncheck ./...
-
-      - name: Test
-        run: go test -v -count=1 ./...
+    uses: ./.github/workflows/quality.yml
 
   release:
     name: Release
     runs-on: macos-latest
     needs: quality
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -49,6 +26,15 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+          cache: true
+
+      - name: Validate tag
+        run: |
+          version="${{ github.ref_name }}"
+          if ! [[ "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Error: tag '$version' does not match vX.Y.Z"
+            exit 1
+          fi
 
       - name: Build darwin/amd64
         env:
@@ -63,7 +49,9 @@ jobs:
         run: go build -ldflags="-s -w -X main.version=${{ github.ref_name }}" -o cx-darwin-arm64 ./cmd/cx
 
       - name: Generate checksums
-        run: shasum -a 256 cx-darwin-* > checksums.txt
+        run: |
+          shasum -a 256 cx-darwin-* > checksums.txt
+          shasum -a 256 --check checksums.txt
 
       - name: Generate changelog
         id: changelog
@@ -71,8 +59,7 @@ jobs:
           prev_tag=$(git tag --sort=-v:refname | sed -n '2p')
           if [ -n "$prev_tag" ]; then
             echo "changes<<EOF" >> "$GITHUB_OUTPUT"
-            git log --pretty=format:"- %s" "$prev_tag"..HEAD >> "$GITHUB_OUTPUT"
-            echo "" >> "$GITHUB_OUTPUT"
+            git log --pretty=format:"- %s%n" "$prev_tag"..HEAD >> "$GITHUB_OUTPUT"
             echo "EOF" >> "$GITHUB_OUTPUT"
           else
             echo "changes=Initial release" >> "$GITHUB_OUTPUT"

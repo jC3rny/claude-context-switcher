@@ -1,5 +1,5 @@
 function __cx_contexts
-    cx list 2>/dev/null | string match -r '^\s+[*]?\s+\S+' | string trim | string replace -r ' \(active\)$' ''
+    cx list 2>/dev/null | string match -r '^\s' | string trim | string replace -r '^\*\s+' '' | string replace -r '\s+\(active\)$' ''
 end
 
 complete -c cx -n '__fish_use_subcommand' -a list -d 'List all saved contexts'

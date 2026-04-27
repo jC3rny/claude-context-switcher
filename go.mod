@@ -1,3 +1,3 @@
 module github.com/jC3rny/claude-context-switcher
 
-go 1.26.1
+go 1.26.2

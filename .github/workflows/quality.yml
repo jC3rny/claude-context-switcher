@@ -1,0 +1,36 @@
+name: Code Quality
+
+on:
+  workflow_call:
+
+jobs:
+  quality:
+    name: Code Quality
+    runs-on: macos-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v7
+        with:
+          version: latest
+
+      - name: shellcheck
+        run: |
+          brew install shellcheck
+          shellcheck cmd/cx/completions/cx.bash
+
+      - name: govulncheck
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
+      - name: Test
+        run: go test -v -race -count=1 ./...

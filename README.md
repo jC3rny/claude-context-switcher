@@ -60,7 +60,17 @@ cx <command> [args]
 | `cx show <name>` | Show token preview (first/last 6 chars) |
 | `cx current` | Show the currently active context |
 | `cx completion <shell>` | Print shell completions (bash, zsh, fish) |
-| `cx version` | Print version |
+| `cx version` / `--version` | Print version |
+| `cx help` | Show help |
+
+### Flags
+
+| Flag | Description |
+|---|---|
+| `-v`, `--verbose` | Verbose output (stderr) |
+| `--debug` | Debug output, includes verbose (stderr) |
+
+Flags must appear before the command: `cx -v list`
 
 ### Workflow
 
@@ -99,7 +109,7 @@ eval "$(cx completion bash)"
 
 # Zsh - add to ~/.zshrc
 eval "$(cx completion zsh)"
-# or: cx completion zsh > ~/.zfunc/_cx  (add ~/.zfunc to fpath first)
+# or: cx completion zsh > ~/.zfunc/_cx  # add ~/.zfunc to fpath first
 
 # Fish
 cx completion fish > ~/.config/fish/completions/cx.fish
